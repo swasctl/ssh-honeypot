@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg: #080a0c;
+  --surface: #0d1117;
+  --border: #1a2332;
+  --accent: #00ff88;
+  --accent-dim: #00ff8844;
+  --amber: #ffaa00;
+  --red: #ff3355;
+  --text: #c9d1d9;
+  --text-dim: #4a5568;
+  --mono: 'Share Tech Mono', monospace;
+  --display: 'Rajdhani', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,255,136,0.015) 2px,
+    rgba(0,255,136,0.015) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); }
+
+.leaflet-container { background: #080d1a !important; }
+.leaflet-popup-content-wrapper {
+  background: #0d1117 !important;
+  border: 1px solid #1a2332 !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+.leaflet-popup-tip { background: #0d1117 !important; }
+.leaflet-popup-content { margin: 8px 12px !important; color: #c9d1d9 !important; }
+.leaflet-control-zoom a {
+  background: #0d1117 !important;
+  color: #00ff88 !important;
+  border-color: #1a2332 !important;
+}
+.leaflet-control-attribution {
+  background: #080d1a88 !important;
+  color: #4a5568 !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a { color: #4a5568 !important; }
