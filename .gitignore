@@ -51,6 +51,5 @@ frontend/*.local
 *.swp
 
 # Generated assets that can contain sensitive captured data
-docs/screenshots/
 
 backend/data/GeoLite2-City.mmdb
