@@ -1,0 +1,990 @@
+rules:
+  # -----------------------------------------------------------------------
+  # DESTRUCTION / WIPER — highest priority, most dangerous
+  # -----------------------------------------------------------------------
+
+  - name: disk_wiper
+    description: Attempted to overwrite disk with zeros or random data (dd, shred, wipe)
+    conditions:
+      min_commands: 1
+      command_keywords: ["dd if=/dev/zero", "dd if=/dev/urandom", "shred -", "wipe /dev"]
+    severity: critical
+    mitre_id: T1485
+    mitre_name: Data Destruction
+
+  - name: recursive_delete
+    description: Attempted rm -rf on root, /etc, /var, /usr, /boot — classic wiper tactic
+    conditions:
+      min_commands: 1
+      command_keywords: ["rm -rf /", "rm -rf /etc", "rm -rf /var", "rm -rf /boot", "rm -rf /usr", "rm --no-preserve-root"]
+    severity: critical
+    mitre_id: T1485
+    mitre_name: Data Destruction
+
+  - name: mbr_wipe
+    description: Overwrote MBR or partition table — renders system unbootable
+    conditions:
+      min_commands: 1
+      command_keywords: ["dd of=/dev/sda", "dd of=/dev/vda", "dd of=/dev/nvme", "dd of=/dev/hda"]
+    severity: critical
+    mitre_id: T1561.002
+    mitre_name: Disk Structure Wipe
+
+  - name: ransomware
+    description: Encryption commands targeting filesystem (openssl enc, gpg --encrypt in bulk)
+    conditions:
+      min_commands: 1
+      command_keywords: ["openssl enc", "gpg --encrypt", "gpg -c", "find / -type f -exec openssl"]
+    severity: critical
+    mitre_id: T1486
+    mitre_name: Data Encrypted for Impact
+
+  - name: fork_bomb
+    description: Executed a fork bomb — intentional DoS against the host
+    conditions:
+      min_commands: 1
+      command_keywords: [":(){ :|:", "bomb(){ bomb|bomb", "forkbomb"]
+    severity: critical
+    mitre_id: T1499
+    mitre_name: Endpoint Denial of Service
+
+  - name: swap_destroy
+    description: Disabled or destroyed swap space to destabilize the system
+    conditions:
+      min_commands: 1
+      command_keywords: ["swapoff -a", "dd of=/dev/swap"]
+    severity: critical
+    mitre_id: T1485
+    mitre_name: Data Destruction
+
+  # -----------------------------------------------------------------------
+  # REVERSE SHELLS — attacker trying to call back out
+  # -----------------------------------------------------------------------
+
+  - name: reverse_shell_bash
+    description: Classic bash reverse shell one-liner via /dev/tcp or bash -i
+    conditions:
+      min_commands: 1
+      command_keywords: ["bash -i", "/dev/tcp/", "bash -c 'bash", "0>&1", ">&/dev/tcp"]
+    severity: critical
+    mitre_id: T1059.004
+    mitre_name: Unix Shell
+
+  - name: reverse_shell_python
+    description: Python-based reverse shell (socket + exec/subprocess pattern)
+    conditions:
+      min_commands: 1
+      command_keywords: ["python -c 'import socket", "python3 -c 'import socket", "import subprocess", "socket.connect"]
+    severity: critical
+    mitre_id: T1059.006
+    mitre_name: Python
+
+  - name: reverse_shell_netcat
+    description: Netcat used to open a remote shell (-e /bin/sh or /bin/bash)
+    conditions:
+      min_commands: 1
+      command_keywords: ["nc -e /bin", "ncat -e /bin", "netcat -e /bin", "nc -c bash", "nc -lvp"]
+    severity: critical
+    mitre_id: T1059.004
+    mitre_name: Unix Shell
+
+  - name: reverse_shell_perl
+    description: Perl one-liner reverse shell
+    conditions:
+      min_commands: 1
+      command_keywords: ["perl -e 'use Socket", "perl -MSocket"]
+    severity: critical
+    mitre_id: T1059.006
+    mitre_name: Python
+
+  - name: reverse_shell_ruby
+    description: Ruby one-liner reverse shell via socket
+    conditions:
+      min_commands: 1
+      command_keywords: ["ruby -rsocket", "TCPSocket.open", "ruby -e 'require"]
+    severity: critical
+    mitre_id: T1059
+    mitre_name: Command and Scripting Interpreter
+
+  - name: reverse_shell_php
+    description: PHP reverse shell spawned from command line
+    conditions:
+      min_commands: 1
+      command_keywords: ["php -r '$sock=fsockopen", "php -r 'exec", "php -r '$s=fsockopen"]
+    severity: critical
+    mitre_id: T1059
+    mitre_name: Command and Scripting Interpreter
+
+  - name: reverse_shell_lua
+    description: Lua-based reverse shell one-liner
+    conditions:
+      min_commands: 1
+      command_keywords: ["lua -e 'local s=require", "lua5"]
+    severity: critical
+    mitre_id: T1059
+    mitre_name: Command and Scripting Interpreter
+
+  - name: socat_reverse_shell
+    description: Socat used to open a full TTY reverse shell (stealthier than netcat)
+    conditions:
+      min_commands: 1
+      command_keywords: ["socat tcp:", "socat TCP:", "socat exec:", "socat file:`tty`"]
+    severity: critical
+    mitre_id: T1059.004
+    mitre_name: Unix Shell
+
+  - name: xterm_reverse_shell
+    description: Xterm launched to connect back to attacker display (DISPLAY= exploit)
+    conditions:
+      min_commands: 1
+      command_keywords: ["xterm -display ", "DISPLAY=", "xhost +"]
+    severity: critical
+    mitre_id: T1059.004
+    mitre_name: Unix Shell
+
+  # -----------------------------------------------------------------------
+  # ROOTKIT / KERNEL TAMPERING
+  # -----------------------------------------------------------------------
+
+  - name: kernel_module_load
+    description: Loaded a kernel module — likely rootkit installation (insmod, modprobe)
+    conditions:
+      min_commands: 1
+      command_keywords: ["insmod ", "modprobe ", "LD_PRELOAD=", "ld.so.preload"]
+    severity: critical
+    mitre_id: T1014
+    mitre_name: Rootkit
+
+  - name: ptrace_injection
+    description: Used ptrace or /proc/pid/mem to inject into running processes
+    conditions:
+      min_commands: 1
+      command_keywords: ["ptrace", "/proc/self/mem", "/proc/1/mem", "process_vm_writev"]
+    severity: critical
+    mitre_id: T1055.008
+    mitre_name: Ptrace System Calls
+
+  - name: ebpf_abuse
+    description: Loaded an eBPF program — used by advanced rootkits to hook syscalls invisibly
+    conditions:
+      min_commands: 1
+      command_keywords: ["bpf(", "bpftool ", "bpftrace ", "tc filter add bpf"]
+    severity: critical
+    mitre_id: T1014
+    mitre_name: Rootkit
+
+  - name: proc_namespace_escape
+    description: Attempted to break out of PID/mount namespaces via /proc tricks
+    conditions:
+      min_commands: 1
+      command_keywords: ["/proc/1/root", "/proc/sysrq-trigger", "echo b > /proc/sysrq", "echo c > /proc/sysrq"]
+    severity: critical
+    mitre_id: T1611
+    mitre_name: Escape to Host
+
+  # -----------------------------------------------------------------------
+  # CRYPTOMINING — economically motivated, highly automated
+  # -----------------------------------------------------------------------
+
+  - name: cryptominer_dropper
+    description: Downloaded and executed a miner (xmrig, minerd, /tmp execution chain)
+    conditions:
+      min_commands: 2
+      command_keywords: ["xmrig", "minerd", "minergate", "stratum+tcp://", "pool.supportxmr", "cryptonight", "monero"]
+    severity: critical
+    mitre_id: T1496
+    mitre_name: Resource Hijacking
+
+  - name: nicehash_miner
+    description: Connected to NiceHash or similar mining pool proxy
+    conditions:
+      min_commands: 1
+      command_keywords: ["nicehash", "2miners.com", "f2pool", "antpool", "nanopool", "ethermine"]
+    severity: critical
+    mitre_id: T1496
+    mitre_name: Resource Hijacking
+
+  - name: tmp_execute_dropper
+    description: Downloaded payload to /tmp and made it executable — classic dropper chain
+    conditions:
+      min_commands: 2
+      command_keywords: ["/tmp/", "chmod +x /tmp", "chmod 777 /tmp", "bash /tmp", "sh /tmp", "./tmp/"]
+    severity: high
+    mitre_id: T1105
+    mitre_name: Ingress Tool Transfer
+
+  - name: dev_shm_dropper
+    description: Dropped and executed a binary from /dev/shm — memory-only malware staging
+    conditions:
+      min_commands: 1
+      command_keywords: ["/dev/shm/", "chmod +x /dev/shm", "bash /dev/shm", "cp /dev/shm"]
+    severity: critical
+    mitre_id: T1105
+    mitre_name: Ingress Tool Transfer
+
+  - name: proc_fd_exec
+    description: Executed payload through /proc/self/fd — fileless execution technique
+    conditions:
+      min_commands: 1
+      command_keywords: ["/proc/self/fd/", "memfd_create", "fd_execute"]
+    severity: critical
+    mitre_id: T1620
+    mitre_name: Reflective Code Loading
+
+  # -----------------------------------------------------------------------
+  # FIREWALL / DEFENSE EVASION
+  # -----------------------------------------------------------------------
+
+  - name: firewall_disable
+    description: Flushed iptables rules or disabled ufw/firewalld to open the system
+    conditions:
+      min_commands: 1
+      command_keywords: ["iptables -F", "iptables --flush", "ufw disable", "systemctl stop firewalld", "service iptables stop"]
+    severity: high
+    mitre_id: T1562.004
+    mitre_name: Disable or Modify System Firewall
+
+  - name: iptables_port_forward
+    description: Added iptables PREROUTING rule to redirect traffic — covert port forward
+    conditions:
+      min_commands: 1
+      command_keywords: ["iptables -t nat", "PREROUTING", "DNAT --to-destination", "REDIRECT --to-port"]
+    severity: high
+    mitre_id: T1090.001
+    mitre_name: Internal Proxy
+
+  - name: log_clearing
+    description: Cleared shell history or deleted system logs to hide activity
+    conditions:
+      min_commands: 1
+      command_keywords: ["history -c", "history -w /dev/null", "rm -rf /var/log", "truncate -s0 /var/log", "echo '' > /var/log", "unset HISTFILE"]
+    severity: high
+    mitre_id: T1070.003
+    mitre_name: Clear Command History
+
+  - name: wtmp_utmp_tamper
+    description: Tampered with login record files wtmp/utmp/lastlog to erase login traces
+    conditions:
+      min_commands: 1
+      command_keywords: ["echo > /var/log/wtmp", "echo > /var/log/btmp", "echo > /var/log/lastlog", "> /var/run/utmp", "utmpdump"]
+    severity: high
+    mitre_id: T1070
+    mitre_name: Indicator Removal on Host
+
+  - name: timestamp_tamper
+    description: Modified file timestamps with touch -t to obscure forensic timelines
+    conditions:
+      min_commands: 1
+      command_keywords: ["touch -t ", "touch -r ", "touch -d "]
+    severity: high
+    mitre_id: T1070.006
+    mitre_name: Timestomp
+
+  - name: selinux_disable
+    description: Disabled SELinux or AppArmor kernel security modules
+    conditions:
+      min_commands: 1
+      command_keywords: ["setenforce 0", "setenforce Permissive", "aa-disable", "apparmor_parser -R"]
+    severity: high
+    mitre_id: T1562.001
+    mitre_name: Disable or Modify Tools
+
+  - name: disable_auditd
+    description: Stopped or disabled the auditd security auditing daemon
+    conditions:
+      min_commands: 1
+      command_keywords: ["systemctl stop auditd", "service auditd stop", "auditctl -e 0", "systemctl disable auditd"]
+    severity: high
+    mitre_id: T1562.001
+    mitre_name: Disable or Modify Tools
+
+  - name: binary_padding
+    description: Used dd or truncate to pad a binary to evade size-based detection
+    conditions:
+      min_commands: 1
+      command_keywords: ["dd if=/dev/urandom >> ", "truncate -s +", "cat /dev/urandom >>"]
+    severity: medium
+    mitre_id: T1027.001
+    mitre_name: Binary Padding
+
+  - name: encoded_payload
+    description: Decoded or executed a base64-encoded payload in-memory
+    conditions:
+      min_commands: 1
+      command_keywords: ["base64 -d", "base64 --decode", "echo * | base64", "| base64 -d | bash", "| base64 -d | sh"]
+    severity: high
+    mitre_id: T1027
+    mitre_name: Obfuscated Files or Information
+
+  # -----------------------------------------------------------------------
+  # PERSISTENCE
+  # -----------------------------------------------------------------------
+
+  - name: cron_persistence
+    description: Added a cron job for persistence (crontab -e or direct /etc/cron write)
+    conditions:
+      min_commands: 1
+      command_keywords: ["crontab -e", "crontab -l", "echo * * * *", "/etc/cron", "/var/spool/cron"]
+    severity: high
+    mitre_id: T1053.003
+    mitre_name: Cron
+
+  - name: at_job_persistence
+    description: Scheduled a one-time command with 'at' — less monitored than cron
+    conditions:
+      min_commands: 1
+      command_keywords: ["at now", "at -f ", "atq", "echo | at "]
+    severity: high
+    mitre_id: T1053.001
+    mitre_name: At
+
+  - name: startup_persistence
+    description: Modified shell profile or init scripts for persistence
+    conditions:
+      min_commands: 1
+      command_keywords: [".bashrc", ".bash_profile", ".profile", "/etc/rc.local", "/etc/profile", "~/.config/autostart"]
+    severity: high
+    mitre_id: T1546.004
+    mitre_name: Unix Shell Configuration Modification
+
+  - name: systemd_persistence
+    description: Created or enabled a systemd service for persistence
+    conditions:
+      min_commands: 1
+      command_keywords: ["systemctl enable", "systemctl start", "/etc/systemd/system/", ".service"]
+    severity: high
+    mitre_id: T1543.002
+    mitre_name: Systemd Service
+
+  - name: ssh_key_implant
+    description: Added unauthorized SSH key to authorized_keys for persistent access
+    conditions:
+      min_commands: 1
+      command_keywords: ["authorized_keys", "echo ssh-rsa", "echo ssh-ed25519", ">> ~/.ssh/", "cat >> .ssh/authorized_keys"]
+    severity: high
+    mitre_id: T1098.004
+    mitre_name: SSH Authorized Keys
+
+  - name: user_creation
+    description: Created a new OS user account — classic backdoor account
+    conditions:
+      min_commands: 1
+      command_keywords: ["useradd ", "adduser ", "usermod -aG sudo", "usermod -aG wheel", "passwd "]
+    severity: high
+    mitre_id: T1136.001
+    mitre_name: Local Account
+
+  - name: motd_backdoor
+    description: Modified /etc/update-motd.d/ scripts — executed as root on every login
+    conditions:
+      min_commands: 1
+      command_keywords: ["/etc/update-motd.d/", "/etc/motd", "update-motd"]
+    severity: high
+    mitre_id: T1546
+    mitre_name: Event Triggered Execution
+
+  - name: git_hook_persistence
+    description: Installed a malicious git hook for code repository persistence
+    conditions:
+      min_commands: 1
+      command_keywords: [".git/hooks/pre-commit", ".git/hooks/post-commit", ".git/hooks/pre-push", "git hook"]
+    severity: high
+    mitre_id: T1546
+    mitre_name: Event Triggered Execution
+
+  - name: dynamic_linker_hijack
+    description: Modified /etc/ld.so.conf or LD_LIBRARY_PATH to preload malicious libraries
+    conditions:
+      min_commands: 1
+      command_keywords: ["/etc/ld.so.conf", "ldconfig", "LD_LIBRARY_PATH=", "/etc/ld.so.preload"]
+    severity: high
+    mitre_id: T1574.006
+    mitre_name: Dynamic Linker Hijacking
+
+  # -----------------------------------------------------------------------
+  # PRIVILEGE ESCALATION
+  # -----------------------------------------------------------------------
+
+  - name: sudo_abuse
+    description: Ran sudo commands or tried to escalate via su
+    conditions:
+      min_commands: 1
+      command_keywords: ["sudo su", "sudo bash", "sudo -s", "sudo -i", "su root", "su -"]
+    severity: high
+    mitre_id: T1548.003
+    mitre_name: Sudo and Sudo Caching
+
+  - name: sudoers_tamper
+    description: Modified /etc/sudoers to grant passwordless root to an account
+    conditions:
+      min_commands: 1
+      command_keywords: ["visudo", "echo NOPASSWD >> /etc/sudoers", "/etc/sudoers.d/", "ALL=(ALL) NOPASSWD"]
+    severity: critical
+    mitre_id: T1548.003
+    mitre_name: Sudo and Sudo Caching
+
+  - name: suid_search
+    description: Searched for SUID/SGID binaries — standard privesc enumeration step
+    conditions:
+      min_commands: 1
+      command_keywords: ["find / -perm -4000", "find / -perm -2000", "find / -perm /4000", "-perm -u=s", "-perm -g=s"]
+    severity: high
+    mitre_id: T1548.001
+    mitre_name: Setuid and Setgid
+
+  - name: suid_set
+    description: Set the SUID bit on a binary to create a privesc vector
+    conditions:
+      min_commands: 1
+      command_keywords: ["chmod u+s", "chmod 4755", "chmod 4777", "chmod +s"]
+    severity: critical
+    mitre_id: T1548.001
+    mitre_name: Setuid and Setgid
+
+  - name: passwd_shadow_access
+    description: Attempted to read /etc/passwd or /etc/shadow (credential dumping)
+    conditions:
+      min_commands: 1
+      command_keywords: ["cat /etc/passwd", "cat /etc/shadow", "cat /etc/sudoers", "grep root /etc/passwd", "/etc/shadow"]
+    severity: high
+    mitre_id: T1003.008
+    mitre_name: /etc/passwd and /etc/shadow
+
+  - name: passwd_file_modify
+    description: Directly edited /etc/passwd or /etc/shadow — adding root-level accounts
+    conditions:
+      min_commands: 1
+      command_keywords: ["echo root:", ">> /etc/passwd", ">> /etc/shadow", "openssl passwd"]
+    severity: critical
+    mitre_id: T1003.008
+    mitre_name: /etc/passwd and /etc/shadow
+
+  - name: world_writable_chmod
+    description: Made files world-writable or gave full permissions (chmod 777)
+    conditions:
+      min_commands: 1
+      command_keywords: ["chmod 777", "chmod a+rwx", "chmod -R 777", "chmod o+w /etc"]
+    severity: high
+    mitre_id: T1222.002
+    mitre_name: Linux and Mac File and Directory Permissions Modification
+
+  - name: capability_abuse
+    description: Granted Linux capabilities (cap_net_raw, cap_sys_admin) to escalate privileges
+    conditions:
+      min_commands: 1
+      command_keywords: ["setcap cap_", "getcap /", "cap_net_raw+ep", "cap_sys_admin"]
+    severity: high
+    mitre_id: T1548
+    mitre_name: Abuse Elevation Control Mechanism
+
+  - name: exploit_tool
+    description: Ran a known kernel/local exploit binary (dirtycow, sudo baron samedit, etc.)
+    conditions:
+      min_commands: 1
+      command_keywords: ["dirtycow", "dirty_cow", "cve-", "CVE-", "exploit.sh", "poc.sh", "baron_samedit"]
+    severity: critical
+    mitre_id: T1068
+    mitre_name: Exploitation for Privilege Escalation
+
+  - name: lxd_privesc
+    description: Used LXD/LXC group membership to mount host filesystem and escalate
+    conditions:
+      min_commands: 1
+      command_keywords: ["lxc init", "lxc launch", "lxd init", "lxc config device add disk"]
+    severity: critical
+    mitre_id: T1611
+    mitre_name: Escape to Host
+
+  # -----------------------------------------------------------------------
+  # LATERAL MOVEMENT
+  # -----------------------------------------------------------------------
+
+  - name: lateral_ssh
+    description: Initiated outbound SSH connections — pivoting to other hosts
+    conditions:
+      min_commands: 1
+      command_keywords: ["ssh ", "ssh -i ", "ssh -o StrictHostKeyChecking", "sshpass -p", "ssh root@", "ssh admin@"]
+    severity: high
+    mitre_id: T1021.004
+    mitre_name: SSH
+
+  - name: worm_propagation
+    description: Looped SSH/ping across subnets — automated worm-style spreading
+    conditions:
+      min_commands: 1
+      command_keywords: ["for i in", "for host in", "while read", "192.168.", "10.0.", "172.16."]
+    severity: high
+    mitre_id: T1570
+    mitre_name: Lateral Tool Transfer
+
+  - name: ssh_agent_hijack
+    description: Listed or hijacked existing SSH agent sockets for credential reuse
+    conditions:
+      min_commands: 1
+      command_keywords: ["SSH_AUTH_SOCK", "ssh-add -l", "ls /tmp/ssh-", "SSH_AGENT_PID"]
+    severity: high
+    mitre_id: T1552.004
+    mitre_name: Private Keys
+
+  - name: known_hosts_harvest
+    description: Read known_hosts file to map reachable SSH targets
+    conditions:
+      min_commands: 1
+      command_keywords: ["cat ~/.ssh/known_hosts", "cat /etc/ssh/known_hosts", "cat ~/.ssh/config"]
+    severity: medium
+    mitre_id: T1018
+    mitre_name: Remote System Discovery
+
+  - name: rdp_tunneling
+    description: Tunneled RDP or VNC over SSH — common pivot technique into Windows networks
+    conditions:
+      min_commands: 1
+      command_keywords: ["ssh -L 3389", "ssh -L 5900", "ssh -R 3389", "ssh -D ", "-L 3389:"]
+    severity: high
+    mitre_id: T1572
+    mitre_name: Protocol Tunneling
+
+  - name: proxy_setup
+    description: Set up SOCKS proxy or HTTP tunnel for onward pivoting
+    conditions:
+      min_commands: 1
+      command_keywords: ["ssh -D ", "proxychains", "chisel", "frp", "ligolo", "gost -L socks5"]
+    severity: high
+    mitre_id: T1090
+    mitre_name: Proxy
+
+  # -----------------------------------------------------------------------
+  # EXFILTRATION
+  # -----------------------------------------------------------------------
+
+  - name: data_exfil_curl
+    description: Exfiltrated data via curl or wget POST to external host
+    conditions:
+      min_commands: 1
+      command_keywords: ["curl -X POST", "curl --data", "curl -d ", "wget --post-data", "curl -F "]
+    severity: high
+    mitre_id: T1048.003
+    mitre_name: Exfiltration Over Unencrypted Non-C2 Protocol
+
+  - name: data_exfil_netcat
+    description: Used netcat to stream data to a remote host (classic exfil pipe)
+    conditions:
+      min_commands: 1
+      command_keywords: ["| nc ", "| ncat ", "tar cf - | nc", "cat /etc | nc"]
+    severity: high
+    mitre_id: T1048
+    mitre_name: Exfiltration Over Alternative Protocol
+
+  - name: data_exfil_scp
+    description: Copied files out via scp or rsync to external host
+    conditions:
+      min_commands: 1
+      command_keywords: ["scp ", "rsync -", "sftp "]
+    severity: high
+    mitre_id: T1048.002
+    mitre_name: Exfiltration Over Asymmetric Encrypted Non-C2 Protocol
+
+  - name: data_exfil_dns
+    description: Used DNS queries to encode and tunnel data out (iodine, dnscat2)
+    conditions:
+      min_commands: 1
+      command_keywords: ["iodine", "dnscat", "dns2tcp", "nslookup -q=txt", "dig txt "]
+    severity: high
+    mitre_id: T1048.001
+    mitre_name: Exfiltration Over Alternative Protocol — DNS
+
+  - name: data_exfil_ftp
+    description: Used FTP to transfer data out of the system
+    conditions:
+      min_commands: 1
+      command_keywords: ["ftp ", "lftp ", "ncftp ", "put /etc/", "mput "]
+    severity: high
+    mitre_id: T1048
+    mitre_name: Exfiltration Over Alternative Protocol
+
+  - name: data_archive
+    description: Archived sensitive directories before exfiltration (tar, zip, 7z)
+    conditions:
+      min_commands: 1
+      command_keywords: ["tar czf", "tar cjf", "zip -r", "7z a ", "rar a "]
+    severity: medium
+    mitre_id: T1560.001
+    mitre_name: Archive via Utility
+
+  - name: sensitive_file_read
+    description: Read private keys, credentials, or cloud config files
+    conditions:
+      min_commands: 1
+      command_keywords: ["cat ~/.ssh/id_rsa", "cat ~/.aws/credentials", "cat ~/.kube/config", "cat /root/.ssh/", "cat /home/*/.ssh/id"]
+    severity: high
+    mitre_id: T1552.004
+    mitre_name: Private Keys
+
+  - name: clipboard_dump
+    description: Attempted to dump clipboard content via xclip or xdotool
+    conditions:
+      min_commands: 1
+      command_keywords: ["xclip -o", "xdotool getactivewindow", "xsel --output"]
+    severity: medium
+    mitre_id: T1115
+    mitre_name: Clipboard Data
+
+  # -----------------------------------------------------------------------
+  # NETWORK SCANNING / INTERNAL RECONNAISSANCE
+  # -----------------------------------------------------------------------
+
+  - name: network_scanner
+    description: Ran network scanning tools (nmap, masscan, zmap) from inside the host
+    conditions:
+      min_commands: 1
+      command_keywords: ["nmap ", "masscan ", "zmap ", "nikto ", "unicornscan "]
+    severity: high
+    mitre_id: T1046
+    mitre_name: Network Service Discovery
+
+  - name: network_recon
+    description: Enumerated network topology — routes, ARP table, open sockets
+    conditions:
+      min_commands: 1
+      command_keywords: ["netstat -", "ss -", "route -n", "ip route", "arp -a", "arp -n"]
+    severity: medium
+    mitre_id: T1049
+    mitre_name: System Network Connections Discovery
+
+  - name: active_brute_tool
+    description: Ran an internal brute-force tool against other services (hydra, medusa, ncrack)
+    conditions:
+      min_commands: 1
+      command_keywords: ["hydra ", "medusa ", "ncrack ", "patator ", "crowbar "]
+    severity: high
+    mitre_id: T1110
+    mitre_name: Brute Force
+
+  - name: vulnerability_scanner
+    description: Ran a vulnerability scanner against hosts or web apps (nikto, sqlmap, wfuzz)
+    conditions:
+      min_commands: 1
+      command_keywords: ["sqlmap ", "wfuzz ", "gobuster ", "dirb ", "dirbuster", "feroxbuster", "wpscan"]
+    severity: high
+    mitre_id: T1595.002
+    mitre_name: Vulnerability Scanning
+
+  - name: dns_enumeration
+    description: Performed DNS zone transfer or subdomain enumeration
+    conditions:
+      min_commands: 1
+      command_keywords: ["dig axfr", "host -t axfr", "dnsenum", "dnsrecon", "fierce --domain", "amass enum"]
+    severity: medium
+    mitre_id: T1590.002
+    mitre_name: DNS
+
+  - name: sniff_traffic
+    description: Ran a packet sniffer to capture network traffic (tcpdump, tshark, wireshark)
+    conditions:
+      min_commands: 1
+      command_keywords: ["tcpdump ", "tshark ", "wireshark", "ettercap", "dsniff ", "tcpflow "]
+    severity: high
+    mitre_id: T1040
+    mitre_name: Network Sniffing
+
+  - name: arp_poisoning
+    description: Poisoned ARP tables to intercept traffic (arpspoof, arping, bettercap)
+    conditions:
+      min_commands: 1
+      command_keywords: ["arpspoof ", "arp -s ", "arping ", "bettercap", "ettercap -A"]
+    severity: high
+    mitre_id: T1557.002
+    mitre_name: ARP Cache Poisoning
+
+  - name: port_knock_scan
+    description: Sent knock sequences to trigger hidden service (knockd pattern)
+    conditions:
+      min_commands: 1
+      command_keywords: ["knock ", "nmap -sU --script=udp-proto-scanner", "knockd"]
+    severity: medium
+    mitre_id: T1205.001
+    mitre_name: Port Knocking
+
+  # -----------------------------------------------------------------------
+  # SYSTEM RECONNAISSANCE
+  # -----------------------------------------------------------------------
+
+  - name: reconnaissance
+    description: Ran recon commands to fingerprint the system (whoami, uname, id, etc.)
+    conditions:
+      min_commands: 1
+      command_keywords: ["whoami", "id", "uname -a", "uname -r", "hostname", "ifconfig", "ip addr", "ip a"]
+    severity: medium
+    mitre_id: T1082
+    mitre_name: System Information Discovery
+
+  - name: process_enumeration
+    description: Listed running processes and services to find targets
+    conditions:
+      min_commands: 1
+      command_keywords: ["ps aux", "ps -ef", "top -b", "pstree", "service --status-all", "systemctl list-units"]
+    severity: medium
+    mitre_id: T1057
+    mitre_name: Process Discovery
+
+  - name: user_enumeration
+    description: Enumerated local users, groups, and logged-in sessions
+    conditions:
+      min_commands: 1
+      command_keywords: ["cat /etc/passwd", "getent passwd", "cat /etc/group", "w ", "who ", "last ", "id -a", "groups "]
+    severity: medium
+    mitre_id: T1087.001
+    mitre_name: Local Account
+
+  - name: software_discovery
+    description: Listed installed packages or software versions to find exploitable software
+    conditions:
+      min_commands: 1
+      command_keywords: ["dpkg -l", "rpm -qa", "apt list", "pip list", "pip freeze", "gem list", "yum list installed"]
+    severity: medium
+    mitre_id: T1518
+    mitre_name: Software Discovery
+
+  - name: env_variable_dump
+    description: Dumped environment variables — may reveal secrets, tokens, or cloud credentials
+    conditions:
+      min_commands: 1
+      command_keywords: ["printenv", "env ", "export -p", "set | grep", "echo $AWS", "echo $SECRET", "echo $TOKEN"]
+    severity: medium
+    mitre_id: T1083
+    mitre_name: File and Directory Discovery
+
+  - name: cloud_metadata_probe
+    description: Queried cloud IMDS endpoint for credentials or instance identity
+    conditions:
+      min_commands: 1
+      command_keywords: ["169.254.169.254", "metadata.google.internal", "169.254.170.2", "imds/latest/meta-data"]
+    severity: critical
+    mitre_id: T1552.005
+    mitre_name: Cloud Instance Metadata API
+
+  - name: container_escape_attempt
+    description: Probed Docker/Kubernetes environment for escape primitives
+    conditions:
+      min_commands: 1
+      command_keywords: ["docker run", "docker exec", "kubectl exec", "nsenter", "runc", "cgroup", "/.dockerenv"]
+    severity: high
+    mitre_id: T1611
+    mitre_name: Escape to Host
+
+  - name: docker_socket_abuse
+    description: Directly accessed the Docker socket to run privileged containers
+    conditions:
+      min_commands: 1
+      command_keywords: ["/var/run/docker.sock", "curl --unix-socket /var/run/docker", "docker -H unix://"]
+    severity: critical
+    mitre_id: T1611
+    mitre_name: Escape to Host
+
+  - name: kernel_version_check
+    description: Specifically queried kernel version — often precedes kernel exploit selection
+    conditions:
+      min_commands: 1
+      command_keywords: ["uname -r", "cat /proc/version", "cat /proc/sys/kernel/osrelease"]
+    severity: medium
+    mitre_id: T1082
+    mitre_name: System Information Discovery
+
+  - name: cpu_info_recon
+    description: Read CPU/hardware info — common before deploying architecture-specific payloads
+    conditions:
+      min_commands: 1
+      command_keywords: ["cat /proc/cpuinfo", "lscpu", "cat /proc/meminfo", "free -m", "lshw"]
+    severity: low
+    mitre_id: T1082
+    mitre_name: System Information Discovery
+
+  - name: filesystem_search
+    description: Recursively searched the filesystem for sensitive files or credentials
+    conditions:
+      min_commands: 1
+      command_keywords: ["find / -name", "find / -type f -name", "find / -iname '*.pem'", "find / -iname '*.key'", "find / -iname 'id_rsa'"]
+    severity: medium
+    mitre_id: T1083
+    mitre_name: File and Directory Discovery
+
+  - name: history_read
+    description: Read shell history files — attacker mining previously typed commands for secrets
+    conditions:
+      min_commands: 1
+      command_keywords: ["cat ~/.bash_history", "cat ~/.zsh_history", "cat ~/.history", "history | grep"]
+    severity: medium
+    mitre_id: T1552.003
+    mitre_name: Bash History
+
+  - name: cve_lookup
+    description: Searched for CVEs or looked up exploit-db from inside the shell
+    conditions:
+      min_commands: 1
+      command_keywords: ["searchsploit ", "exploit-db", "exploitdb", "msfconsole", "msfvenom"]
+    severity: high
+    mitre_id: T1588.005
+    mitre_name: Exploits
+
+  # -----------------------------------------------------------------------
+  # DOWNLOAD / TOOL STAGING
+  # -----------------------------------------------------------------------
+
+  - name: tool_download
+    description: Downloaded external tools or scripts using wget/curl (staging for next phase)
+    conditions:
+      min_commands: 1
+      command_keywords: ["wget http", "wget https", "curl -O ", "curl -o ", "curl http", "fetch http", "lwp-download"]
+    severity: medium
+    mitre_id: T1105
+    mitre_name: Ingress Tool Transfer
+
+  - name: supply_chain_install
+    description: Installed packages mid-session — possibly malicious pip/npm/apt packages
+    conditions:
+      min_commands: 1
+      command_keywords: ["pip install", "pip3 install", "npm install", "apt-get install", "apt install", "yum install", "gem install"]
+    severity: medium
+    mitre_id: T1072
+    mitre_name: Software Deployment Tools
+
+  - name: git_clone_tool
+    description: Cloned a repository mid-session — likely a hacking tool or exploit from GitHub
+    conditions:
+      min_commands: 1
+      command_keywords: ["git clone ", "git clone http"]
+    severity: medium
+    mitre_id: T1105
+    mitre_name: Ingress Tool Transfer
+
+  - name: compile_on_host
+    description: Compiled source code on the target — often a privilege escalation exploit or tool
+    conditions:
+      min_commands: 1
+      command_keywords: ["gcc ", "g++ ", "make ", "cc ", "clang ", "cmake ."]
+    severity: medium
+    mitre_id: T1027.004
+    mitre_name: Compile After Delivery
+
+  # -----------------------------------------------------------------------
+  # WEB SHELL / C2 STAGING
+  # -----------------------------------------------------------------------
+
+  - name: webshell_deploy
+    description: Wrote a PHP, JSP, or ASPX web shell to a web server directory
+    conditions:
+      min_commands: 1
+      command_keywords: ["/var/www/html/", "/var/www/", "echo '<?php", "<?php system(", "<?php exec(", ".php' >"]
+    severity: critical
+    mitre_id: T1505.003
+    mitre_name: Web Shell
+
+  - name: c2_beacon_setup
+    description: Configured a Cobalt Strike beacon, Sliver, or Metasploit stager
+    conditions:
+      min_commands: 1
+      command_keywords: ["cobaltstrike", "beacon.exe", "sliver-client", "msfvenom", "empire", "havoc"]
+    severity: critical
+    mitre_id: T1071
+    mitre_name: Application Layer Protocol
+
+  - name: ngrok_tunnel
+    description: Installed or ran ngrok/cloudflared to expose services — common C2 evasion
+    conditions:
+      min_commands: 1
+      command_keywords: ["ngrok ", "ngrok http", "ngrok tcp", "cloudflared tunnel", "./ngrok"]
+    severity: high
+    mitre_id: T1572
+    mitre_name: Protocol Tunneling
+
+  # -----------------------------------------------------------------------
+  # CREDENTIAL ACCESS
+  # -----------------------------------------------------------------------
+
+  - name: ssh_private_key_read
+    description: Read SSH private key files directly
+    conditions:
+      min_commands: 1
+      command_keywords: ["cat ~/.ssh/id_rsa", "cat ~/.ssh/id_ed25519", "cat ~/.ssh/id_ecdsa", "cat /root/.ssh/id_"]
+    severity: high
+    mitre_id: T1552.004
+    mitre_name: Private Keys
+
+  - name: gpg_key_export
+    description: Exported GPG private keys — may contain signing or encryption keys
+    conditions:
+      min_commands: 1
+      command_keywords: ["gpg --export-secret", "gpg --armor --export", "gpg -a --export"]
+    severity: high
+    mitre_id: T1552
+    mitre_name: Unsecured Credentials
+
+  - name: browser_credential_dump
+    description: Accessed browser profile directories for stored passwords or cookies
+    conditions:
+      min_commands: 1
+      command_keywords: [".mozilla/firefox", ".config/google-chrome", "Login Data", "Cookies", "key4.db"]
+    severity: high
+    mitre_id: T1555.003
+    mitre_name: Credentials from Web Browsers
+
+  - name: keylogger_deploy
+    description: Installed a keylogger (logkeys, showkey, xinput)
+    conditions:
+      min_commands: 1
+      command_keywords: ["logkeys ", "logkeys -s", "showkey --scancodes", "xinput test"]
+    severity: critical
+    mitre_id: T1056.001
+    mitre_name: Keylogging
+
+  - name: password_manager_dump
+    description: Accessed KeePass, pass, or bitwarden-cli credential stores
+    conditions:
+      min_commands: 1
+      command_keywords: ["keepass", "pass show", "bw unlock", "bw get item", ".kdbx"]
+    severity: high
+    mitre_id: T1555
+    mitre_name: Credentials from Password Stores
+
+  - name: memory_credential_dump
+    description: Dumped process memory to extract in-memory credentials (strings, /proc/mem)
+    conditions:
+      min_commands: 1
+      command_keywords: ["strings /proc/", "cat /proc/*/mem", "gcore ", "dump /proc"]
+    severity: high
+    mitre_id: T1003
+    mitre_name: OS Credential Dumping
+
+  # -----------------------------------------------------------------------
+  # AUTOMATED BOTS / AUTH-ONLY SESSIONS (low signal, high volume)
+  # -----------------------------------------------------------------------
+
+  - name: automated_bot
+    description: No commands run, disconnected within 10 s — pure auth probe
+    conditions:
+      max_commands: 0
+      max_duration: 10
+    severity: low
+    mitre_id: T1110.001
+    mitre_name: Password Spraying
+
+  - name: credential_stuffing
+    description: Authenticated then ran 0–2 commands — likely automated credential validation
+    conditions:
+      max_commands: 2
+      min_duration: 5
+    severity: medium
+    mitre_id: T1110.004
+    mitre_name: Credential Stuffing
+
+  # -----------------------------------------------------------------------
+  # GENERIC FALLBACKS (broad, catch-all rules — must stay last)
+  # -----------------------------------------------------------------------
+
+  - name: manual_attacker
+    description: Interactive session with multiple commands — human operator likely
+    conditions:
+      min_commands: 3
+    severity: high
+    mitre_id: T1059
+    mitre_name: Command and Scripting Interpreter

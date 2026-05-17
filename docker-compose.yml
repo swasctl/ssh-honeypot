@@ -1,0 +1,21 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "2222:2222"
+      - "8000:8000"
+    volumes:
+      - ./backend/honeypot.db:/app/honeypot.db
+      - ./backend/data:/app/data
+      - ./backend/hostkey.pem:/app/hostkey.pem
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: unless-stopped

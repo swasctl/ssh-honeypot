@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+hostkey.pem
+*.pem
+*.key
+honeypot.db
+*.db
+*.sqlite
+*.sqlite3
+__pycache__/
+*.py[cod]
+*.log

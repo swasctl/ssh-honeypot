@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Runtime artifacts / secrets
+*.pem
+*.key
+hostkey.pem
+backend/hostkey.pem
+
+# Databases and local data
+*.db
+*.sqlite
+*.sqlite3
+honeypot.db
+backend/honeypot.db
+
+# Logs and dumps
+logs/
+*.log
+*.out
+*.err
+
+# Frontend build/deps
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+frontend/*.local
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+*.suo
+*.swp
+
+# Generated assets that can contain sensitive captured data
+docs/screenshots/
+
+backend/data/GeoLite2-City.mmdb
